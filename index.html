@@ -1,0 +1,102 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#2e7d32"><link rel="manifest" href="manifest.json"><link rel="icon" href="icon.svg"><title>AgriConnect ZW</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--g:#2e7d32;--bg:#f6f8f3;--c:#fff;--t:#1d2b1d;--m:#5c6b5c}
+@media(prefers-color-scheme:dark){:root{--bg:#121812;--c:#1c261c;--t:#e8f0e8;--m:#9bb09b}}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--t)}
+header{background:var(--g);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
+header b{font-size:18px}#net{font-size:12px;padding:2px 8px;border-radius:9px;background:#fff3;}
+nav{display:flex;overflow-x:auto;background:var(--c);position:sticky;top:0;z-index:999;border-bottom:1px solid #8883}
+nav button{flex:none;padding:12px 14px;border:0;background:none;color:var(--m);font-size:14px;border-bottom:3px solid transparent}
+nav button.on{color:var(--g);border-color:var(--g);font-weight:600}
+section{display:none;padding:12px}section.on{display:block}
+.card{background:var(--c);border-radius:10px;padding:12px;margin-bottom:10px;box-shadow:0 1px 3px #0002}
+.card h3{margin:0 0 4px;font-size:16px}.m{color:var(--m);font-size:13px}
+#map{height:55vh;border-radius:10px}
+button.b,a.b{background:var(--g);color:#fff;border:0;border-radius:8px;padding:9px 14px;text-decoration:none;display:inline-block;margin:4px 4px 0 0;font-size:14px}
+input,select{width:100%;padding:9px;margin:4px 0;border-radius:6px;border:1px solid #8886;background:var(--bg);color:var(--t)}
+.row{display:flex;gap:8px}.row>*{flex:1}.tag{background:#2e7d3222;color:var(--g);border-radius:9px;padding:2px 8px;font-size:12px;margin-right:4px}
+.d{display:flex;gap:8px;overflow-x:auto}.d>div{flex:none;text-align:center;min-width:76px}
+</style></head><body>
+<header><b>🌱 AgriConnect ZW</b><span id="net"></span></header>
+<nav id="nav"></nav>
+
+<section id="map-s" class="on">
+ <div id="map"></div>
+ <button class="b" onclick="locate()">📍 Use my location</button><span class="m"> or tap the map to place your farm</span>
+ <div id="analysis" class="card" style="margin-top:10px"><span class="m">Tap the map to run spatial analyses.</span></div>
+</section>
+<section id="weather-s"><div class="card"><h3>7-day forecast</h3><div class="m" id="wmeta">Place your farm on the Map tab first.</div><div class="d" id="wdays"></div><p id="wadv"></p><button class="b" onclick="loadWeather()">Refresh</button></div></section>
+<section id="markets-s"><div id="mk"></div></section>
+<section id="experts-s"><div id="ex"></div></section>
+<section id="finance-s"><div id="fi"></div></section>
+<section id="records-s">
+ <div class="card"><h3>Add record</h3>
+  <div class="row"><input type="date" id="rd"><select id="rt"><option>Expense</option><option>Income</option></select></div>
+  <div class="row"><input id="rc" placeholder="Category (seed, sale, labour...)"><input id="ra" type="number" placeholder="Amount (USD)"></div>
+  <input id="rn" placeholder="Note"><button class="b" onclick="addRec()">Save</button><button class="b" onclick="csv()">Export CSV</button></div>
+ <div class="card"><h3>Summary</h3><div id="rs"></div></div><div id="rl"></div></section>
+<section id="learn-s"><div id="ln"></div></section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ---- SAMPLE DATASETS (replace with real ones: see README) ---- */
+const MARKETS=[["Mbare Musika, Harare",-17.86,31.03,"Maize, vegetables, fruit"],["Sakubva Market, Mutare",-18.99,32.65,"Fruit, vegetables"],["Mbizo Market, Kwekwe",-18.93,29.81,"Grain, vegetables"],["Gweru Central Market",-19.45,29.81,"Mixed produce"],["Renkini, Bulawayo",-20.16,28.57,"Livestock, grain"],["Masvingo Market",-20.07,30.83,"Cattle, groundnuts"],["Beitbridge Market",-22.22,30.0,"Horticulture, cross-border"]];
+const WATER=[["Lake Chivero",-17.92,30.78],["Mazowe Dam",-17.55,30.97],["Lake Mutirikwi",-20.22,30.83],["Mtshabezi Dam",-20.77,29.0],["Lake Kariba",-16.52,28.8],["Limpopo River (Beitbridge)",-22.22,29.99],["Osborne Dam",-19.3,32.4]];
+const SERVICES=[["AGRITEX Harare",-17.83,31.05,"Extension"],["AGRITEX Bulawayo",-20.15,28.58,"Extension"],["AGRITEX Mutare",-18.97,32.67,"Extension"],["AGRITEX Masvingo",-20.07,30.83,"Extension"],["Vet Services Gweru",-19.46,29.82,"Veterinary"],["AGRITEX Beitbridge",-22.21,30.01,"Extension"]];
+/* Natural Region reference points (nearest-neighbour proxy; replace with real NR polygons) */
+const NR=[[-17.83,31.05,2],[-18.97,32.67,1],[-19.45,29.82,3],[-20.15,28.58,4],[-20.07,30.83,4],[-22.22,30.0,5],[-16.52,28.8,5],[-18.3,30.2,3],[-21.0,31.5,5]];
+const CROPS={1:["Tea","Coffee","Potatoes","Dairy","Fruit"],2:["Maize","Soybean","Wheat","Tobacco","Horticulture"],3:["Drought-tolerant maize","Cotton","Sorghum","Groundnuts","Beef"],4:["Sorghum","Pearl millet","Cotton","Cattle","Goats"],5:["Cattle","Goats","Sorghum/millet","Irrigated citrus (near water)","Wildlife"]};
+const EXPERTS=[["AGRITEX (Gov. extension)","Crop & farm advice","+263242707891"],["Dept. of Veterinary Services","Livestock health","+263242791355"],["Zimbabwe Farmers Union","Farmer support","+263242704444"],["Your ward AEO","Local extension officer","—"]];
+const FINANCE=[["AFC Bank","Agricultural loans","https://www.afc.co.zw"],["Empower Bank / microfinance","Youth & SME loans","#"],["Youth Development Fund","Youth enterprise funding","#"],["NGO / donor grants","Check UNDP, FAO, USAID calls","#"]];
+const LEARN=[["Conservation agriculture (Pfumvudza)","Planting basins, mulching, small plots. Good for NR 3–5."],["Soil sampling","Test pH before liming or fertiliser; sample in zig-zag pattern."],["Fall armyworm","Scout weekly; spray early morning when 5%+ plants infested."],["Livestock vaccination","Follow dipping & vaccination calendar from Vet Services."],["Post-harvest handling","Dry grain below 12.5% moisture; store in hermetic bags."],["Record keeping","Log every cost and sale; know your cost per hectare."]];
+/* ---- UI ---- */
+const TABS=[["map","🗺️ Map"],["weather","⛅ Weather"],["markets","🛒 Markets"],["experts","👨‍🌾 Experts"],["finance","💰 Finance"],["records","📒 Records"],["learn","📚 Learn"]];
+nav.innerHTML=TABS.map(t=>`<button id="t-${t[0]}" onclick="show('${t[0]}')">${t[1]}</button>`).join("");
+function show(k){document.querySelectorAll("section").forEach(s=>s.classList.toggle("on",s.id==k+"-s"));TABS.forEach(t=>document.getElementById("t-"+t[0]).classList.toggle("on",t[0]==k));if(k=="map")setTimeout(()=>map.invalidateSize(),50)}
+function net(){document.getElementById("net").textContent=navigator.onLine?"● Online":"○ Offline mode"}
+addEventListener("online",net);addEventListener("offline",net);net();
+mk.innerHTML=MARKETS.map(m=>`<div class="card"><h3>${m[0]}</h3><div class="m">${m[3]}</div></div>`).join("")+`<div class="card m">Tip: post your produce for sale by calling the market or an agent; listing/SMS trading is planned.</div>`;
+ex.innerHTML=EXPERTS.map(e=>`<div class="card"><h3>${e[0]}</h3><div class="m">${e[1]}</div>${e[2].startsWith("+")?`<a class="b" href="tel:${e[2]}">📞 Call</a><a class="b" href="https://wa.me/${e[2].slice(1)}">WhatsApp</a><a class="b" href="sms:${e[2]}?body=Hello, I need farming advice">SMS</a>`:""}</div>`).join("");
+fi.innerHTML=FINANCE.map(f=>`<div class="card"><h3>${f[0]}</h3><div class="m">${f[1]}</div>${f[2]!="#"?`<a class="b" href="${f[2]}">Visit</a>`:""}</div>`).join("");
+ln.innerHTML=LEARN.map(l=>`<div class="card"><h3>${l[0]}</h3><div class="m">${l[1]}</div></div>`).join("");
+/* ---- GIS ---- */
+const map=L.map("map").setView([-19.0,30.0],6);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:14,attribution:"© OpenStreetMap"}).addTo(map);
+const dot=(a,c,n)=>a.forEach(p=>L.circleMarker([p[1],p[2]],{radius:7,color:c,fillOpacity:.8}).bindPopup(`<b>${p[0]}</b>`).addTo(n));
+const gM=L.layerGroup().addTo(map),gW=L.layerGroup().addTo(map),gS=L.layerGroup().addTo(map),gA=L.layerGroup().addTo(map);
+dot(MARKETS,"#1565c0",gM);dot(WATER,"#00acc1",gW);dot(SERVICES,"#ef6c00",gS);
+L.control.layers(null,{"Markets":gM,"Water":gW,"Ag services":gS}).addTo(map);
+const km=(a,b,c,d)=>{const r=x=>x*Math.PI/180,h=Math.sin(r(c-a)/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(r(d-b)/2)**2;return 12742*Math.asin(Math.sqrt(h))};
+const near=(a,lat,lon)=>a.map(p=>({p,d:km(lat,lon,p[1],p[2])})).sort((x,y)=>x.d-y.d)[0];
+let farm=null;
+function analyse(lat,lon){farm=[lat,lon];gA.clearLayers();L.marker([lat,lon]).addTo(gA).bindPopup("Your farm");
+ const w=near(WATER,lat,lon),m=near(MARKETS,lat,lon),s=near(SERVICES,lat,lon),r=near(NR.map(n=>["",n[0],n[1],n[2]]),lat,lon).p[3];
+ [[w,"#00acc1"],[m,"#1565c0"],[s,"#ef6c00"]].forEach(x=>L.polyline([[lat,lon],[x[0].p[1],x[0].p[2]]],{color:x[1],dashArray:"6"}).addTo(gA));
+ const wl=w.d<10?"Good – irrigation feasible":w.d<30?"Moderate – boreholes/piping":"Far – rainfed or borehole";
+ analysis.innerHTML=`<h3>Farm analysis</h3><p>🌾 <b>Crop suitability</b> (Natural Region ${r}):<br>${CROPS[r].map(c=>`<span class="tag">${c}</span>`).join("")}</p>
+ <p>💧 <b>Water proximity:</b> ${w.d.toFixed(1)} km to ${w.p[0]}<br><span class="m">${wl}</span></p>
+ <p>🛒 <b>Market access:</b> ${m.d.toFixed(1)} km to ${m.p[0]} (~${(m.d*1.3/40).toFixed(1)} h by road)</p>
+ <p>🧑‍🔧 <b>Service access:</b> ${s.d.toFixed(1)} km to ${s.p[0]}</p><span class="m">Straight-line distances; road factor 1.3 at 40 km/h assumed.</span>`;
+ localStorage.farm=JSON.stringify(farm);loadWeather()}
+map.on("click",e=>analyse(e.latlng.lat,e.latlng.lng));
+function locate(){navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{map.setView([p.coords.latitude,p.coords.longitude],10);analyse(p.coords.latitude,p.coords.longitude)},()=>alert("Location unavailable – tap the map instead.")):alert("No GPS")}
+/* ---- Weather (cached for offline) ---- */
+async function loadWeather(){if(!farm)return;const k="wx"+farm.map(x=>x.toFixed(1)).join();
+ try{const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${farm[0]}&longitude=${farm[1]}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`);const j=await r.json();localStorage[k]=JSON.stringify({j,t:Date.now()});drawW(j.daily,"Updated just now")}
+ catch(e){const c=localStorage[k];c?drawW(JSON.parse(c).j.daily,"Offline – saved forecast from "+new Date(JSON.parse(c).t).toLocaleString()):wmeta.textContent="No connection and no saved forecast yet."}}
+function drawW(d,msg){wmeta.textContent=msg;wdays.innerHTML=d.time.map((t,i)=>`<div class="card"><b>${new Date(t).toLocaleDateString(undefined,{weekday:"short"})}</b><br>${Math.round(d.temperature_2m_max[i])}°/${Math.round(d.temperature_2m_min[i])}°<br>🌧 ${d.precipitation_sum[i]}mm</div>`).join("");
+ const rain=d.precipitation_sum.slice(0,3).reduce((a,b)=>a+b,0);wadv.textContent=rain>15?"⚠️ Heavy rain expected in 3 days: delay spraying/fertiliser; check drainage.":rain<2?"☀️ Dry spell: plan irrigation or mulch.":"✅ Good conditions for field work."}
+/* ---- Records (offline, localStorage) ---- */
+let R=JSON.parse(localStorage.recs||"[]");rd.valueAsDate=new Date();
+function addRec(){if(!ra.value)return;R.unshift({d:rd.value,t:rt.value,c:rc.value,a:+ra.value,n:rn.value});save()}
+function del(i){R.splice(i,1);save()}
+function save(){localStorage.recs=JSON.stringify(R);drawR()}
+function drawR(){const inc=R.filter(r=>r.t=="Income").reduce((a,r)=>a+r.a,0),ex=R.filter(r=>r.t=="Expense").reduce((a,r)=>a+r.a,0);
+ rs.innerHTML=`Income $${inc} · Expenses $${ex} · <b>Profit $${inc-ex}</b>`;
+ rl.innerHTML=R.map((r,i)=>`<div class="card"><b>${r.t}: $${r.a}</b> <span class="m">${r.c} · ${r.d}</span><br><span class="m">${r.n}</span> <a href="#" onclick="del(${i});return false">🗑</a></div>`).join("")}
+function csv(){const s="date,type,category,amount,note\n"+R.map(r=>[r.d,r.t,r.c,r.a,r.n].join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([s]));a.download="farm-records.csv";a.click()}
+drawR();show("map");
+if(localStorage.farm){const f=JSON.parse(localStorage.farm);map.setView(f,8);analyse(f[0],f[1])}
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
+</script></body></html>

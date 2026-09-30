@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: agriconnect-zw
+    runtime: static
+    buildCommand: echo "static site"
+    staticPublishPath: .
+    headers:
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache
