@@ -15,3 +15,5 @@ Markets, dams/rivers, AGRITEX offices and Natural Region points are illustrative
 
 ## Datasets (in /data)
 `markets/water/services.json` – OpenStreetMap via Overpass Turbo (veterinary excluded: crops-only scope; 6 approximate AGRITEX centres added). `crops.json` – 25 crops with rainfall, temperature and Natural Region requirements (editable; verify against AGRITEX crop guides). Climate: Open-Meteo archive (3-yr average).
+
+`fields.json` – recorded crop field locations (survey points from the group's QGIS data, cleaned to Zimbabwe bounds, duplicates removed). Used for the map layers and the 30% proximity-evidence term of crop suitability.
