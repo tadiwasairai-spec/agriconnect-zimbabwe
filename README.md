@@ -12,3 +12,6 @@ Mobile-first, offline-capable (PWA) agri information and GIS decision-support to
 
 ## Data (sample – replace with real)
 Markets, dams/rivers, AGRITEX offices and Natural Region points are illustrative in `index.html`. Suggested real sources: Zimbabwe Natural Regions (AGRITEX/FAO), HDX / OpenStreetMap (waterways, markets), Open-Meteo (weather), WorldPop/ESA WorldCover.
+
+## Datasets (in /data)
+`markets/water/services.json` – OpenStreetMap via Overpass Turbo (veterinary excluded: crops-only scope; 6 approximate AGRITEX centres added). `crops.json` – 25 crops with rainfall, temperature and Natural Region requirements (editable; verify against AGRITEX crop guides). Climate: Open-Meteo archive (3-yr average).

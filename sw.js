@@ -1,4 +1,4 @@
-const C='agri-v1',A=['./','index.html','manifest.json','icon.svg','https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css','https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'];
+const C='agri-v2',A=['./','index.html','manifest.json','icon.svg','data/markets.json','data/water.json','data/services.json','data/crops.json','https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css','https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(A))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x))))));
 self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||e.request.url.includes('open-meteo'))return;
